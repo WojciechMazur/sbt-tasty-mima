@@ -2,8 +2,11 @@
 // Must stay in sync with TastyMiMaPlugin.TastyMiMaVersion
 val TastyMiMaVersion = "1.4.0"
 
+val sbt1ScalaVersion = "2.12.20"
+val sbt2ScalaVersion = "3.8.4"
+
 inThisBuild(Def.settings(
-  crossScalaVersions := Seq("2.12.17"),
+  crossScalaVersions := Seq(sbt1ScalaVersion, sbt2ScalaVersion),
   scalaVersion := crossScalaVersions.value.head,
 
   scalacOptions ++= Seq(
@@ -33,11 +36,15 @@ inThisBuild(Def.settings(
   versionPolicyIgnoredInternalDependencyVersions := Some("^\\d+\\.\\d+\\.\\d+\\+\\d+".r),
 ))
 
-val strictCompileSettings = Seq(
-  scalacOptions ++= Seq(
-    "-Xfatal-warnings",
-  ),
-)
+val strictCompileSettings = Seq(scalacOptions ++= {
+  if (scalaVersion.value.startsWith("3."))
+    Seq(
+      "-Werror",
+      "-Wconf:msg=`_` is deprecated:s",
+      "-Wconf:msg=object JavaConverters in package scala.collection is deprecated:s",
+    )
+  else Seq("-Xfatal-warnings")
+})
 
 lazy val root = project.in(file("."))
   .aggregate(`sbt-tasty-mima`).settings(
@@ -48,8 +55,17 @@ lazy val `sbt-tasty-mima` = project.in(file("sbt-tasty-mima"))
   .enablePlugins(SbtPlugin)
   .settings(
     name := "sbt-tasty-mima",
+    crossScalaVersions := Seq(sbt1ScalaVersion, sbt2ScalaVersion),
+    scalaVersion := sbt1ScalaVersion,
+    (pluginCrossBuild / sbtVersion) := {
+      scalaBinaryVersion.value match {
+        case "2.12" => "1.11.3"
+        case _      => "2.0.0"
+      }
+    },
 
     strictCompileSettings,
+    addSbtPlugin("com.github.sbt" % "sbt2-compat" % "0.1.0"),
     libraryDependencies += "ch.epfl.scala" % "tasty-mima-interface" % TastyMiMaVersion,
 
     // Skip `versionCheck` for snapshot releases
@@ -78,6 +94,7 @@ lazy val `sbt-tasty-mima` = project.in(file("sbt-tasty-mima"))
     },
 
     scriptedBufferLog := false,
+    scriptedSbt := sys.props.getOrElse("scripted.sbt.version", (pluginCrossBuild / sbtVersion).value),
     scriptedLaunchOpts := {
       scriptedLaunchOpts.value ++
         Seq("-Xmx1024M", "-Dplugin.version=" + version.value)

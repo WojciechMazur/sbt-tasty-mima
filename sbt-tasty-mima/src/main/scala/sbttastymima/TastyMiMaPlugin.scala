@@ -6,6 +6,7 @@ import sbt.{CrossVersion, _}
 import sbt.Keys._
 import sbt.librarymanagement._
 import sbt.plugins.JvmPlugin
+import sbtcompat.PluginCompat._
 
 object TastyMiMaPlugin extends AutoPlugin {
   // Must stay in sync with TastyMiMaVersion in build.sbt
@@ -49,8 +50,8 @@ object TastyMiMaPlugin extends AutoPlugin {
   override def globalSettings: Seq[Setting[_]] = Def.settings(
     tastyMiMaVersionOverride := None,
     tastyMiMaTastyQueryVersionOverride := None,
-    tastyMiMaConfig := new tastymima.intf.Config(),
-    tastyMiMaJavaBootClasspath := {
+    tastyMiMaConfig := Def.uncached(new tastymima.intf.Config()),
+    tastyMiMaJavaBootClasspath := Def.uncached {
       System.getProperty("sun.boot.class.path") match {
         case null =>
           Seq(FileSystems.getFileSystem(java.net.URI.create("jrt:/")).getPath("modules", "java.base"))
@@ -75,7 +76,8 @@ object TastyMiMaPlugin extends AutoPlugin {
       val config = csrConfiguration.value.withAutoScalaLibrary(false)
       lmcoursier.CoursierDependencyResolution(config)
     },
-    tastyMiMaClasspath := {
+    tastyMiMaClasspath := Def.uncached {
+      implicit val conv: xsbti.FileConverter = fileConverter.value
       val s = streams.value
       val log = s.log
       val lm = (tastyMiMaClasspath / dependencyResolution).value
@@ -101,11 +103,11 @@ object TastyMiMaPlugin extends AutoPlugin {
         case Left(unresolvedWarning) =>
           throw unresolvedWarning.resolveException
         case Right(cp) =>
-          Attributed.blankSeq(cp)
+          toAttributedFiles(cp)
       }
     },
     tastyMiMaPreviousClasspaths / dependencyResolution := dependencyResolution.value,
-    tastyMiMaPreviousClasspaths := {
+    tastyMiMaPreviousClasspaths := Def.uncached {
       val s = streams.value
       val log = s.log
       val lm = (tastyMiMaPreviousClasspaths / dependencyResolution).value
@@ -156,11 +158,12 @@ object TastyMiMaPlugin extends AutoPlugin {
         }
       }
     },
-    tastyMiMaCurrentClasspath := {
+    tastyMiMaCurrentClasspath := Def.uncached {
+      implicit val conv: xsbti.FileConverter = fileConverter.value
       val javaBootCp = tastyMiMaJavaBootClasspath.value
       val classDir = (Compile / classDirectory).value.toPath()
-      val jar = (Compile / packageBin / artifactPath).value.toPath()
-      val cp0 = Attributed.data((Compile / fullClasspath).value).map(_.toPath())
+      val jar = artifactPathToFile((Compile / packageBin / artifactPath).value).toPath()
+      val cp0 = toNioPaths((Compile / fullClasspath).value)
 
       val cp: Seq[Path] = javaBootCp ++ cp0
       val entry: Path = cp0.find { path =>
@@ -171,11 +174,12 @@ object TastyMiMaPlugin extends AutoPlugin {
 
       (cp, entry)
     },
-    tastyMiMaReportIssues := {
+    tastyMiMaReportIssues := Def.uncached {
+      implicit val conv: xsbti.FileConverter = fileConverter.value
       val projectID = moduleName.value
       val log = streams.value.log
 
-      val tastyMiMaCp = Attributed.data(tastyMiMaClasspath.value).map(_.toURI().toURL()).toArray
+      val tastyMiMaCp = toNioPaths(tastyMiMaClasspath.value).map(_.toUri.toURL).toArray
       val config = tastyMiMaConfig.value
       val tastyMiMa = tastymima.intf.TastyMiMa.newInstance(tastyMiMaCp, getClass().getClassLoader(), config)
 
