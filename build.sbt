@@ -63,6 +63,17 @@ lazy val `sbt-tasty-mima` = project.in(file("sbt-tasty-mima"))
         case _      => "2.0.0"
       }
     },
+    Compile / doc /skip := {
+      // Suppress Scaladoc publishing due to a bug
+      // undefined: new dataclass.data # -1: TermRef(TypeRef(TermRef(ThisType(TypeRef(NoPrefix,module class <root>)),object dataclass),data),<init>) at readTasty
+      scalaVersion.value == sbt2ScalaVersion
+    },
+    scalacOptions += {
+      scalaBinaryVersion.value match {
+      case "2.12" => "-release:8"
+      case _      => "-release:17"
+    }
+  },
 
     strictCompileSettings,
     addSbtPlugin("com.github.sbt" % "sbt2-compat" % "0.1.0"),
