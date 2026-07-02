@@ -1,6 +1,6 @@
 import tastymima.intf._
 
-crossScalaVersions := Seq("3.7.1", "3.5.0", "3.4.0", "3.3.0", "3.2.2", "2.13.10", "2.12.17")
+crossScalaVersions := Seq("3.7.1", "3.5.0", "3.4.0", "3.3.0", "3.2.2", "2.13.18", "2.12.21")
 scalaVersion := "3.7.1"
 name := "test-project"
 
